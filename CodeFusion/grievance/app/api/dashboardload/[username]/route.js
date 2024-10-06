@@ -1,14 +1,14 @@
 // Example in `pages/api/dashboardload/[username].js`
 import connectDB from '@/db/connectDb';
-import User from '@/models/User';
+import Issue from '@/models/Issue';
 
 
 export async function GET(req, { params }) {
     try {
-        const { username } = params;
+        const { issues } = params;
         await connectDB();
-        const user = await User.findOne({username});
-        console.log('Name: ',username);
+        const user = await Issue.find({issues});
+        console.log('Name: ',issues);
 
         if (!user) {
             return new Response(JSON.stringify({ message: 'User not found' }), { status: 404 });
