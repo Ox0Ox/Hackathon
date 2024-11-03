@@ -9,7 +9,7 @@ const Navbar = () => {
     const { data: session } = useSession()
     return (
         <>
-            {session && <nav className='flex justify-between bg-gray-800 text-white py-3 sticky top-0 z-10 items-center'>
+            {session && <nav className='flex justify-between bg-blue-950/60 backdrop-blur text-white py-3 sticky top-0 z-10 items-center'>
                 <Link href={'/'}><div className='flex items-center justify-center ml-10 '>
                     <img className='rounded-full mr-2' src="/logo.png" alt="" width={50} />
                     <div className="logo text-2xl font-bold italic">VoiceIT</div>
@@ -43,7 +43,7 @@ const Navbar = () => {
                     </li>
                 </ul>
             </nav>}
-            {!session && <nav className='flex justify-between bg-gray-800 text-white py-3 sticky top-0 z-10 items-center'>
+            {!session && <nav className='flex justify-between bg-blue-950/60 backdrop-blur text-white py-3 sticky top-0 z-10 items-center'>
                 <Link href={'/'}>
                 <div className='flex items-center justify-center ml-10 '>
                     <img className='rounded-full mr-2' src="/logo.png" alt="" width={50} />
