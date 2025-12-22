@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vigil AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+          <path d="M11 8v3l2 2"></path>
+        </svg>
+      </div>
+      <div class="title">
+        <h1>Vigil AI</h1>
+        <p>Truth Navigator</p>
+      </div>
+    </div>
+
+    <!-- Status Indicator -->
+    <div class="status" id="status">
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">Checking connection...</span>
+      </div>
+    </div>
+
+    <!-- Main Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" id="check-page">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <span>Fact Check This Page</span>
+      </button>
+
+      <button class="btn btn-secondary" id="view-history">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>View History</span>
+      </button>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value" id="checks-today">0</div>
+        <div class="stat-label">Checks Today</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="total-checks">0</div>
+        <div class="stat-label">Total Checks</div>
+      </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info">
+      <h3>Supported Content</h3>
+      <div class="supported-items">
+        <span class="tag">YouTube Videos</span>
+        <span class="tag">Instagram Reels</span>
+        <span class="tag">News Articles</span>
+        <span class="tag">Twitter Posts</span>
+        <span class="tag">Documents</span>
+        <span class="tag">Images</span>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings">
+      <button class="btn-link" id="settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6m5.196-15.804l-4.243 4.243M10.757 13.9l-4.243 4.243m13.486.596l-4.243-4.243M10.757 10.1l-4.243-4.243"></path>
+        </svg>
+        Settings
+      </button>
+      <button class="btn-link" id="about">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 16v-4m0-4h.01"></path>
+        </svg>
+        About
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Powered by AI • v1.0.0</p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
