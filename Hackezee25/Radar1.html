@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoBot-Crawler Unified Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; overflow: hidden; }
+        .card { background-color: #2d3748; border-radius: 0.75rem; border: 1px solid #4a5568; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .dot-green { background-color: #48bb78; } .dot-red { background-color: #f56565; } .dot-yellow { background-color: #f6e05e; }
+        #radarCanvas { background-color: #000; border-radius: 50%; display: block; }
+        #joystick-container { position: relative; width: 160px; height: 160px; border: 2px solid #718096; border-radius: 50%; background-color: #4a5568; margin: auto; touch-action: none; }
+        #joystick-handle { position: absolute; width: 50px; height: 50px; border-radius: 50%; background-color: #a0aec0; cursor: grab; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        #h-slider-container { width: 100%; max-width: 250px; height: 40px; background-color: #4a5568; border: 2px solid #718096; border-radius: 10px; position: relative; touch-action: none; }
+        #h-slider-knob { width: 30px; height: 30px; background-color: #a0aec0; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); cursor: ew-resize; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8 flex flex-col h-screen">
+
+    <header class="flex-shrink-0 flex justify-between items-center mb-4 gap-4 flex-wrap">
+        <div><h1 class="text-xl sm:text-2xl font-bold text-gray-100">EcoBot-Crawler Control</h1></div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <input type="text" id="ipAddressInput" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-40 p-2.5" placeholder="Enter Rover IP">
+                <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">CONNECT</button>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="system-status-dot" class="status-dot dot-red" title="Disconnected"></span>
+                <span id="system-status-text" class="text-gray-300 font-medium">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-grow grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0">
+        <div class="lg:col-span-3 card p-4 flex flex-col min-h-0">
+            <h2 class="font-semibold text-gray-400 mb-2 flex-shrink-0 text-center">DUAL SONAR</h2>
+            <div class="relative flex-grow w-full flex items-center justify-center">
+                <canvas id="radarCanvas"></canvas>
+            </div>
+        </div>
+        <div class="lg:col-span-2 flex flex-col gap-4 min-h-0">
+            <div class="card p-4">
+                <h2 class="font-semibold text-gray-400 mb-3">Sensor Readings</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
+                    <div class="card p-2 bg-gray-900/50"><div class="flex items-center justify-center space-x-1 mb-1"><i data-feather="thermometer" class="w-4 h-4 text-blue-400"></i><span class="font-semibold text-xs text-gray-400">TEMP</span></div><p id="temp-value" class="text-xl font-bold text-gray-100">-- °C</p></div>
+                    <div class="card p-2 bg-gray-900/50"><div class="flex items-center justify-center space-x-1 mb-1"><i data-feather="droplet" class="w-4 h-4 text-green-400"></i><span class="font-semibold text-xs text-gray-400">HUMID</span></div><p id="humidity-value" class="text-xl font-bold text-gray-100">-- %</p></div>
+                    <div class="card p-2 bg-gray-900/50"><div class="flex items-center justify-center space-x-1 mb-1"><i data-feather="wind" class="w-4 h-4 text-gray-400"></i><span class="font-semibold text-xs text-gray-400">AQI</span></div><p id="aq-value" class="text-xl font-bold text-gray-100">--</p></div>
+                    <div class="card p-2 bg-gray-900/50"><div class="flex items-center justify-center space-x-1 mb-1"><i data-feather="alert-triangle" class="w-4 h-4 text-yellow-400"></i><span class="font-semibold text-xs text-gray-400">ALCOHOL</span></div><p id="alc-value" class="text-xl font-bold text-gray-100">--</p></div>
+                    <div class="card p-2 bg-gray-900/50 col-span-full"><div class="flex items-center justify-center space-x-1 mb-1"><i data-feather="alert-circle" class="w-4 h-4 text-red-400"></i><span class="font-semibold text-xs text-gray-400">CO GAS</span></div><p id="co-value" class="text-xl font-bold text-gray-100">--</p></div>
+                </div>
+            </div>
+            <div class="card p-4 flex-grow flex flex-col justify-center items-center">
+                <h2 class="font-semibold text-gray-400 mb-4 text-center">Rover Controls</h2>
+                <div class="flex flex-col items-center justify-center w-full gap-6">
+                    <div id="joystick-container"><div id="joystick-handle"></div></div>
+                    <div id="h-slider-container"><div id="h-slider-knob"></div></div>
+                    <button id="emergency-stop" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">EMERGENCY STOP</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- WebSocket and Global State ---
+        let websocket;
+        const maxDistance = 200;
+
+        // --- Element References ---
+        const statusDot = document.getElementById('system-status-dot');
+        const statusText = document.getElementById('system-status-text');
+        const ipAddressInput = document.getElementById('ipAddressInput');
+        const connectButton = document.getElementById('connectButton');
+        const tempValue = document.getElementById('temp-value');
+        const humidityValue = document.getElementById('humidity-value');
+        const aqValue = document.getElementById('aq-value');
+        const alcValue = document.getElementById('alc-value');
+        const coValue = document.getElementById('co-value');
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickHandle = document.getElementById('joystick-handle');
+        const hSliderContainer = document.getElementById('h-slider-container');
+        const hSliderKnob = document.getElementById('h-slider-knob');
+        
+        // --- Control State ---
+        let joystickActive = false;
+        let hSliderActive = false;
+        let joystickCenterX, joystickCenterY, joystickRadius;
+        let sliderWidth;
+
+        // --- Page Load Initialization ---
+        window.addEventListener('load', () => {
+            feather.replace();
+            initControls();
+            
+            // Load last used IP from browser storage
+            ipAddressInput.value = localStorage.getItem('roverIP') || '192.168.43.137';
+
+            // Initial sizing for canvas and controls
+            resizeCanvas();
+            draw(); // Start the radar animation loop
+            updateControlDimensions();
+            
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                updateControlDimensions();
+            });
+        });
+
+        // --- WebSocket Connection Logic ---
+        connectButton.addEventListener('click', () => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                disconnect();
+            } else {
+                connect();
+            }
+        });
+
+        function connect() {
+            const ipAddress = ipAddressInput.value.trim();
+            if (!ipAddress) {
+                alert('Please enter the IP address of the rover.');
+                return;
+            }
+            localStorage.setItem('roverIP', ipAddress); // Save IP for next time
+
+            statusDot.className = "status-dot dot-yellow";
+            statusText.textContent = `Connecting...`;
+            connectButton.disabled = true;
+
+            websocket = new WebSocket(`ws://${ipAddress}:81/`);
+
+            websocket.onopen = () => {
+                statusDot.className = "status-dot dot-green";
+                statusText.textContent = "Connected";
+                connectButton.textContent = "DISCONNECT";
+                connectButton.disabled = false;
+            };
+
+            websocket.onclose = () => {
+                statusDot.className = "status-dot dot-red";
+                statusText.textContent = "Disconnected";
+                connectButton.textContent = "CONNECT";
+                connectButton.disabled = false;
+                websocket = null;
+            };
+
+            websocket.onerror = (error) => {
+                statusText.textContent = "Connection Error";
+                console.error('WebSocket Error:', error);
+                connectButton.disabled = false;
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateSensorCards(data);
+                updateRadar(data);
+            };
+        }
+        
+        function disconnect() {
+            if (websocket) {
+                websocket.close();
+            }
+        }
+
+        // --- Data Update Functions ---
+        function updateSensorCards(data) {
+            if (data.temp !== undefined) tempValue.textContent = `${data.temp.toFixed(1)} °C`;
+            if (data.hum !== undefined) humidityValue.textContent = `${data.hum.toFixed(1)} %`;
+            if (data.aq !== undefined) aqValue.textContent = data.aq;
+            if (data.alc !== undefined) alcValue.textContent = data.alc;
+            if (data.co !== undefined) coValue.textContent = data.co;
+        }
+
+        function updateRadar(data) {
+            if (data.angle === undefined) return;
+            currentAngle = data.angle;
+            // dist1 is Rear (blue), dist2 is Front (red)
+            if (data.dist1 > 0 && data.dist1 < maxDistance) points.push(new RadarPoint(data.angle + 180, data.dist1, 'rgba(100, 150, 255,'));
+            if (data.dist2 > 0 && data.dist2 < maxDistance) points.push(new RadarPoint(data.angle, data.dist2, 'rgba(255, 100, 100,'));
+        }
+        
+        // --- Control Logic ---
+        function sendCommand(command, data = {}) {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+            const payload = { action: command, ...data };
+            websocket.send(JSON.stringify(payload));
+        }
+
+        function initControls() {
+            joystickContainer.addEventListener('mousedown', startJoystickMove);
+            window.addEventListener('mousemove', moveJoystick);
+            window.addEventListener('mouseup', stopJoystickMove);
+            joystickContainer.addEventListener('touchstart', startJoystickMove, { passive: false });
+            window.addEventListener('touchmove', moveJoystick, { passive: false });
+            window.addEventListener('touchend', stopJoystickMove);
+            hSliderContainer.addEventListener('mousedown', startHSliderMove);
+            window.addEventListener('mousemove', moveHSlider);
+            window.addEventListener('mouseup', stopHSliderMove);
+            hSliderContainer.addEventListener('touchstart', startHSliderMove, { passive: false });
+            window.addEventListener('touchmove', moveHSlider, { passive: false });
+            window.addEventListener('touchend', stopHSliderMove);
+            document.getElementById('emergency-stop').addEventListener('click', () => { sendCommand('stop'); resetControls(); });
+        }
+
+        function updateControlDimensions() {
+            const rect = joystickContainer.getBoundingClientRect();
+            joystickCenterX = rect.left + rect.width / 2;
+            joystickCenterY = rect.top + rect.height / 2;
+            joystickRadius = rect.width / 2 - joystickHandle.offsetWidth / 2;
+            sliderWidth = hSliderContainer.clientWidth - hSliderKnob.offsetWidth;
+            resetControls();
+        }
+
+        function resetControls() {
+            joystickHandle.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
+            hSliderKnob.style.transform = `translate(-50%, -50%) translateX(0px)`;
+        }
+
+        function startJoystickMove(e) { joystickActive = true; if(e.cancelable) e.preventDefault(); }
+        function moveJoystick(e) {
+            if (!joystickActive) return;
+            const clientX = e.clientX || e.touches[0].clientX;
+            const clientY = e.clientY || e.touches[0].clientY;
+            let deltaX = clientX - joystickCenterX;
+            let deltaY = clientY - joystickCenterY;
+            const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), joystickRadius);
+            const angle = Math.atan2(deltaY, deltaX);
+            const clampedX = distance * Math.cos(angle);
+            const clampedY = distance * Math.sin(angle);
+            joystickHandle.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
+            let verticalSpeed = -clampedY / joystickRadius;
+            let horizontalSteer = clampedX / joystickRadius;
+            let leftMotor = Math.max(-1, Math.min(1, verticalSpeed + horizontalSteer));
+            let rightMotor = Math.max(-1, Math.min(1, verticalSpeed - horizontalSteer));
+            if (Math.abs(leftMotor) > 0.1 || Math.abs(rightMotor) > 0.1) {
+                sendCommand('drive', { left: leftMotor, right: rightMotor });
+            } else {
+                sendCommand('stop');
+            }
+        }
+        function stopJoystickMove() {
+            if (!joystickActive) return;
+            joystickActive = false;
+            resetControls();
+            sendCommand('stop');
+        }
+
+        function startHSliderMove(e) { hSliderActive = true; if(e.cancelable) e.preventDefault(); }
+        function moveHSlider(e) {
+            if (!hSliderActive) return;
+            const clientX = e.clientX || e.touches[0].clientX;
+            const sliderRect = hSliderContainer.getBoundingClientRect();
+            let xPos = clientX - sliderRect.left - hSliderKnob.offsetWidth / 2;
+            xPos = Math.max(0, Math.min(xPos, sliderWidth));
+            const knobX = xPos - sliderWidth / 2;
+            hSliderKnob.style.transform = `translate(-50%, -50%) translateX(${knobX}px)`;
+            let speed = knobX / (sliderWidth / 2);
+            if (Math.abs(speed) > 0.1) {
+                sendCommand('rotate', { speed: speed });
+            } else {
+                sendCommand('stop');
+            }
+        }
+        function stopHSliderMove() {
+            if (!hSliderActive) return;
+            hSliderActive = false;
+            resetControls();
+            sendCommand('stop');
+        }
+
+        // --- Radar Canvas Logic ---
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentAngle = 0;
+        let points = [];
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const size = Math.min(container.clientWidth, container.clientHeight) - 4;
+            if (canvas.width !== size || canvas.height !== size) {
+                canvas.width = size;
+                canvas.height = size;
+            }
+        }
+        
+        class RadarPoint {
+            constructor(angle, distance, color) { this.angle = angle; this.distance = distance; this.color = color; this.lifespan = 255; }
+            update() { this.lifespan -= 1.5; }
+            isDead() { return this.lifespan < 0; }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 5;
+            drawRadarGrid(centerX, centerY, radius);
+            points = points.filter(p => !p.isDead());
+            points.forEach(p => {
+                p.update();
+                const mappedR = (p.distance / maxDistance) * radius;
+                const angleRad = (p.angle - 90) * Math.PI / 180;
+                const pointX = centerX + mappedR * Math.cos(angleRad);
+                const pointY = centerY + mappedR * Math.sin(angleRad);
+                ctx.fillStyle = `${p.color} ${p.lifespan / 255})`;
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 2.5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+            drawSweepingLine(centerX, centerY, radius);
+            requestAnimationFrame(draw);
+        }
+        
+        function drawRadarGrid(x, y, r) {
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)'; ctx.lineWidth = 0.5;
+            for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(x, y, r * (i / 3), 0, 2 * Math.PI); ctx.stroke(); }
+            for (let i = 0; i < 360; i += 45) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + r * Math.cos(i * Math.PI / 180), y + r * Math.sin(i * Math.PI / 180)); ctx.stroke(); }
+        }
+        
+        function drawSweepingLine(x, y, r) {
+            const angleRad = (currentAngle - 90) * Math.PI / 180;
+            const oppositeAngleRad = (currentAngle + 180 - 90) * Math.PI / 180;
+            const gradRed = ctx.createLinearGradient(x, y, x + r * Math.cos(angleRad), y + r * Math.sin(angleRad));
+            gradRed.addColorStop(0, 'rgba(255, 100, 100, 0)'); gradRed.addColorStop(1, 'rgba(255, 100, 100, 0.8)');
+            ctx.strokeStyle = gradRed; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + r * Math.cos(angleRad), y + r * Math.sin(angleRad)); ctx.stroke();
+            const gradBlue = ctx.createLinearGradient(x, y, x + r * Math.cos(oppositeAngleRad), y + r * Math.sin(oppositeAngleRad));
+            gradBlue.addColorStop(0, 'rgba(100, 150, 255, 0)'); gradBlue.addColorStop(1, 'rgba(100, 150, 255, 0.7)');
+            ctx.strokeStyle = gradBlue; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + r * Math.cos(oppositeAngleRad), y + r * Math.sin(oppositeAngleRad)); ctx.stroke();
+        }
+    </script>
+</body>
+</html>

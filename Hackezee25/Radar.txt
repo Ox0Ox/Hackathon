@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 Web Radar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: #0a0a0a;
+            color: #00ff41;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #000;
+            border-radius: 50%;
+        }
+        .btn {
+            background-color: #00ff41;
+            color: #000;
+            border: 2px solid #00ff41;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background-color: #000;
+            color: #00ff41;
+        }
+        .btn:disabled {
+            background-color: #333;
+            color: #888;
+            border-color: #555;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen m-0 p-4">
+
+    <div class="w-full max-w-4xl text-center mb-4">
+        <h1 class="text-3xl font-bold tracking-widest">DUAL SONAR RADAR</h1>
+        <p id="status" class="text-lg text-yellow-400">Status: Disconnected</p>
+    </div>
+
+    <div class="relative w-full max-w-xl aspect-square">
+        <canvas id="radarCanvas"></canvas>
+    </div>
+
+    <div class="mt-4">
+        <button id="connectButton" class="btn">CONNECT TO ROVER</button>
+    </div>
+
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const statusDisplay = document.getElementById('status');
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Configuration ---
+        const maxDistance = 200; // Max distance in cm to display on the radar.
+        const baudRate = 115200;
+        // ---
+
+        let port;
+        let reader;
+        let currentAngle = 0;
+        let points = [];
+
+        // Resize canvas to fit its container
+        function resizeCanvas() {
+            const size = canvas.parentElement.clientWidth;
+            canvas.width = size;
+            canvas.height = size;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // RadarPoint class to manage detected objects
+        class RadarPoint {
+            constructor(angle, distance, color) {
+                this.angle = angle;
+                this.distance = distance;
+                this.color = color;
+                this.lifespan = 255; // Start fully opaque
+            }
+            update() {
+                this.lifespan -= 1.5; // Fade out speed
+            }
+            isDead() {
+                return this.lifespan < 0;
+            }
+        }
+
+        // --- Web Serial API Logic ---
+        connectButton.addEventListener('click', async () => {
+            if (port) {
+                await disconnect();
+            } else {
+                await connect();
+            }
+        });
+        
+        async function connect() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: baudRate });
+                statusDisplay.textContent = 'Status: Connected';
+                connectButton.textContent = 'DISCONNECT';
+                connectButton.disabled = false;
+                
+                // Start the reading loop
+                readLoop();
+
+            } catch (error) {
+                statusDisplay.textContent = `Error: ${error.message}`;
+                console.error('Connection error:', error);
+            }
+        }
+
+        async function disconnect() {
+             if (reader) {
+                await reader.cancel();
+                reader = null;
+            }
+            if (port) {
+                await port.close();
+                port = null;
+            }
+            statusDisplay.textContent = 'Status: Disconnected';
+            connectButton.textContent = 'CONNECT TO ROVER';
+        }
+
+        let lineBuffer = '';
+        async function readLoop() {
+            const textDecoder = new TextDecoderStream();
+            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+            reader = textDecoder.readable.getReader();
+
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    lineBuffer += value;
+                    const lines = lineBuffer.split('\n');
+                    lineBuffer = lines.pop(); // Keep the last, possibly incomplete, line
+                    
+                    lines.forEach(line => processLine(line.trim()));
+                }
+            } catch (error) {
+                console.error('Read loop error:', error);
+                statusDisplay.textContent = 'Status: Read error. Disconnected.';
+                await disconnect();
+            } finally {
+                reader.releaseLock();
+            }
+        }
+
+        function processLine(line) {
+            if (!line) return;
+            const parts = line.split(',');
+            if (parts.length === 3) {
+                const angle = parseFloat(parts[0]);
+                const dist1 = parseFloat(parts[1]);
+                const dist2 = parseFloat(parts[2]);
+                
+                currentAngle = angle;
+                
+                if (dist1 > 0 && dist1 < maxDistance) {
+                    points.push(new RadarPoint(angle, dist1, 'rgba(100, 150, 255,')); // Blue
+                }
+                if (dist2 > 0 && dist2 < maxDistance) {
+                    points.push(new RadarPoint(angle, dist2, 'rgba(255, 100, 100,')); // Red
+                }
+            }
+        }
+
+
+        // --- Canvas Drawing Logic ---
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(centerX, centerY) - 20;
+
+            drawRadarGrid(centerX, centerY, maxRadius);
+            drawPoints(centerX, centerY, maxRadius);
+            drawSweepingLine(centerX, centerY, maxRadius);
+            drawLabels(centerX, centerY, maxRadius);
+
+            requestAnimationFrame(draw);
+        }
+
+        function drawRadarGrid(x, y, r) {
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
+            ctx.lineWidth = 1;
+
+            // Concentric circles
+            for (let i = 1; i <= 4; i++) {
+                ctx.beginPath();
+                ctx.arc(x, y, r * (i / 4), 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Radial lines (full circle for aesthetics)
+            for (let i = 0; i < 360; i += 30) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + r * Math.cos(i * Math.PI / 180), y + r * Math.sin(i * Math.PI / 180));
+                ctx.stroke();
+            }
+        }
+        
+        function drawSweepingLine(x, y, r) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            const angleRad = (currentAngle - 90) * Math.PI / 180; // Offset by -90 to start from top
+            
+            const gradient = ctx.createLinearGradient(0, 0, r * Math.cos(angleRad), r * Math.sin(angleRad));
+            gradient.addColorStop(0, 'rgba(0, 255, 65, 0)');
+            gradient.addColorStop(1, 'rgba(0, 255, 65, 0.8)');
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 4;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(r * Math.cos(angleRad), r * Math.sin(angleRad));
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawPoints(x, y, r) {
+            points = points.filter(p => !p.isDead()); // Remove dead points
+
+            points.forEach(p => {
+                p.update();
+                const mappedR = (p.distance / maxDistance) * r;
+                const angleRad = (p.angle - 90) * Math.PI / 180; // Offset by -90
+                
+                const pointX = x + mappedR * Math.cos(angleRad);
+                const pointY = y + mappedR * Math.sin(angleRad);
+                
+                ctx.fillStyle = `${p.color} ${p.lifespan / 255})`;
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+        
+        function drawLabels(x, y, r){
+            ctx.fillStyle = '#00ff41';
+            ctx.font = '14px Consolas';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Angle labels
+            ctx.fillText('0°', x, y - r - 10);
+            ctx.fillText('90°', x + r + 15, y);
+            ctx.fillText('180°', x, y + r + 10);
+            ctx.fillText('270°', x - r - 20, y);
+            
+            // Distance labels
+             for (let i = 1; i <= 4; i++) {
+                const dist = Math.round(maxDistance * (i / 4));
+                ctx.fillText(`${dist}`, x + 5, y - (r * (i / 4)));
+            }
+        }
+
+        // Start the animation loop
+        draw();
+    </script>
+</body>
+</html>
